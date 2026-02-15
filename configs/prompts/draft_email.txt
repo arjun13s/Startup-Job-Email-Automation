@@ -1,0 +1,19 @@
+Write a short outreach email to this YC company.
+
+CANDIDATE PROFILE:
+{candidate_profile}
+
+HIGHLIGHTS TO EMPHASIZE (prioritize these when relevant to the company):
+{user_highlights}
+
+COMPANY:
+{company_info}
+
+Instructions:
+- When HIGHLIGHTS TO EMPHASIZE are provided, prioritize those when they fit this company (from resume or beyond).
+- Use the profile selectively; pick 1–2 concrete strengths that fit this company. Do NOT repeat the entire resume.
+- Keep the email to 200–300 words.
+- Use concrete strengths and specifics, not generic flattery.
+- Be direct and professional.
+
+Output STRICT JSON only with keys: "subject" (string), "body" (string). No markdown, no explanation.

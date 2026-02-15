@@ -1,0 +1,30 @@
+Extract structured data from the raw resume text below. Output STRICT JSON only.
+
+---RAW RESUME TEXT---
+{resume_text}
+---END---
+
+Output schema (match exactly):
+{
+  "name": "",
+  "headline": "",
+  "core_skills": [],
+  "technical_skills": [],
+  "experience_highlights": [],
+  "quant_projects": [],
+  "metrics": [],
+  "education": "",
+  "links": []
+}
+
+Rules:
+- Extract measurable achievements (%, $, numbers, scale) into metrics only.
+- Extract quant, trading, or automation projects into quant_projects only.
+- Put other notable work accomplishments into experience_highlights.
+- If a field has no information, use "" or [].
+- Do NOT hallucinate. Do NOT infer. Only use information explicitly present in the text.
+- Limit each list to max 8 items.
+- Keep each entry concise (one line per item).
+- No extra commentary. No markdown. No explanation. JSON only.
+
+Return JSON only.

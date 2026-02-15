@@ -1,0 +1,36 @@
+# Secrets – never commit
+.env
+.env.local
+.env.*.local
+*.pem
+
+# Outlook token cache (contains refresh token)
+data/outlook_token_cache.json
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+eggs/
+*.egg-info/
+*.egg
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Optional: uncomment to ignore generated data (you can still commit CSVs if you want)
+# data/raw/
+# data/processed/
+# data/final/
