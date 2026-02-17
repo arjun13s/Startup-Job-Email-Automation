@@ -1,0 +1,12 @@
+Subject: {{candidate_name}} – interested in {{company_name}}
+
+Hi {{company_name}} team,
+
+I was drawn to {{company_description}} and wanted to reach out.
+
+My background: {{candidate_headline}}. Key skills: {{candidate_core_skills}}. Projects: {{candidate_quant_projects}}. Results: {{candidate_metrics}}. {{custom_reference}}
+
+I'd value a short conversation if timing works.
+
+Best,
+{{candidate_name}}
