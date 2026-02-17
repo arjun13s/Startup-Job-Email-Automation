@@ -4,8 +4,9 @@
 .env.*.local
 *.pem
 
-# Outlook token cache (contains refresh token)
+# Outlook token caches (contain refresh tokens)
 data/outlook_token_cache.json
+data/outlook_web_tokens.json
 
 # Python
 .venv/
