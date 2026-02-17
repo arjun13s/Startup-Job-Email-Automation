@@ -237,10 +237,29 @@ def main() -> None:
         default="",
         help="What to emphasize: resume items to highlight and/or experience not on the resume (e.g. 'quant internship, Python automation; also mention leading fintech club').",
     )
+    parser.add_argument(
+        "--template",
+        "-T",
+        type=str,
+        default="",
+        help="Path to a custom template file (e.g. from Documents or frontend upload). Used for all drafts instead of configs/templates/<tier>.txt.",
+    )
     args = parser.parse_args()
     user_highlights = (args.highlight or "").strip()
     if not user_highlights:
         user_highlights = "None specified; use the candidate profile as usual."
+
+    custom_template_text = None
+    if args.template and args.template.strip():
+        template_path = Path(args.template.strip()).resolve()
+        if template_path.exists():
+            try:
+                custom_template_text = template_path.read_text(encoding="utf-8")
+                log(f"Using custom template: {template_path}")
+            except Exception as e:
+                log(f"Could not read custom template: {e}. Falling back to tier templates or GPT.")
+        else:
+            log(f"Custom template not found: {template_path}. Falling back to tier templates or GPT.")
 
     ensure_dirs()
     log("Loading candidate profile...")
@@ -273,9 +292,12 @@ def main() -> None:
         tier = (row.get("tier") or "standard").strip() or "standard"
         log(f"Drafting [{i + 1}/{len(rows)}] {row.get('company_name', '?')}...")
         try:
-            template_text = load_template(tier)
+            template_text = custom_template_text if custom_template_text is not None else load_template(tier)
             if template_text:
-                print(f"[TEMPLATE MODE] Using template for tier: {tier}")
+                if custom_template_text is not None:
+                    print(f"[TEMPLATE MODE] Using custom template")
+                else:
+                    print(f"[TEMPLATE MODE] Using template for tier: {tier}")
                 score = {"solid_reasons": row.get("solid_reasons") if isinstance(row.get("solid_reasons"), list) else []}
                 filled = fill_template(template_text, row, profile, score)
                 subject, body = _extract_subject_from_body(filled)
