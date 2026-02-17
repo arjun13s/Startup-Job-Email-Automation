@@ -1,0 +1,14 @@
+Subject: Exploring ways to contribute at {{company_name}}
+
+Hi {{company_name}} team,
+
+I came across your work in {{company_description}} and was impressed by {{custom_reference}}.
+
+I'm currently focused on {{candidate_headline}}, with experience in {{candidate_core_skills}}.
+
+Recently I've worked on projects like {{candidate_quant_projects}}, achieving results such as {{candidate_metrics}}.
+
+If helpful, I'd love to briefly connect.
+
+Best,
+{{candidate_name}}

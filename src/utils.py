@@ -24,12 +24,13 @@ def log(msg: str) -> None:
 
 
 def ensure_dirs() -> None:
-    """Create data/raw, data/processed, data/final, configs/prompts if missing."""
+    """Create data/raw, data/processed, data/final, configs/prompts, configs/templates if missing."""
     dirs = [
         _PROJECT_ROOT / "data" / "raw",
         _PROJECT_ROOT / "data" / "processed",
         _PROJECT_ROOT / "data" / "final",
         _PROJECT_ROOT / "configs" / "prompts",
+        _PROJECT_ROOT / "configs" / "templates",
     ]
     for d in dirs:
         d.mkdir(parents=True, exist_ok=True)

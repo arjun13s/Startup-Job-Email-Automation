@@ -19,12 +19,16 @@ load_dotenv(Path.cwd() / ".env", override=True)
 from src.models import CandidateProfile, CompanyDraft
 from src.utils import ensure_dirs, log, read_csv, write_csv
 
+USE_GPT_REFINEMENT = False
+
 PROMPT_PATH = _root / "configs" / "prompts" / "draft_email.txt"
+TEMPLATES_DIR = _root / "configs" / "templates"
 CANDIDATE_PROFILE_PATH = _root / "data" / "processed" / "candidate_profile.json"
 COMPANIES_PATH = _root / "data" / "processed" / "yc_companies_processed.csv"
 COMPANIES_RAW_PATH = _root / "data" / "raw" / "yc_companies_raw.csv"
 DRAFTS_OUTPUT_PATH = _root / "data" / "final" / "drafts.csv"
 API_TIMEOUT_SEC = 60
+MAX_FILLED_LENGTH = 2000
 
 
 def _load_candidate_profile() -> CandidateProfile:
@@ -34,6 +38,116 @@ def _load_candidate_profile() -> CandidateProfile:
         raise FileNotFoundError(f"Candidate profile not found: {path}. Run extract_resume.py first.")
     data = json.loads(path.read_text(encoding="utf-8"))
     return CandidateProfile.model_validate(data)
+
+
+def load_template(tier: str) -> str:
+    """Load template for tier from configs/templates/{tier}.txt. Returns empty string if missing."""
+    if not tier or not tier.strip():
+        tier = "standard"
+    tier = re.sub(r"[^a-z0-9_]", "", tier.strip().lower()) or "standard"
+    path = TEMPLATES_DIR / f"{tier}.txt"
+    try:
+        if path.exists():
+            return path.read_text(encoding="utf-8")
+    except Exception:
+        pass
+    return ""
+
+
+def fill_template(
+    template: str,
+    company: dict,
+    profile: CandidateProfile,
+    score: dict,
+) -> str:
+    """Replace placeholders and clean output. Missing data -> empty string."""
+    company_name = (company.get("company_name") or "").strip()
+    company_description = (company.get("short_description") or company.get("company_description") or "").strip()
+    jobs_url = (company.get("jobs_url") or "").strip()
+    location = (company.get("location") or "").strip()
+
+    candidate_name = (profile.name or "").strip()
+    candidate_headline = (profile.headline or "").strip()
+    candidate_core_skills = ", ".join(profile.core_skills) if profile.core_skills else ""
+    candidate_quant_projects = ", ".join((profile.quant_projects or [])[:2])
+    candidate_metrics = ", ".join((profile.metrics or [])[:2])
+    solid_reasons = score.get("solid_reasons") if isinstance(score.get("solid_reasons"), list) else []
+    custom_reference = (solid_reasons[0] if solid_reasons else "").strip()
+
+    replacements = {
+        "{{company_name}}": company_name,
+        "{{company_description}}": company_description,
+        "{{jobs_url}}": jobs_url,
+        "{{location}}": location,
+        "{{candidate_name}}": candidate_name,
+        "{{candidate_headline}}": candidate_headline,
+        "{{candidate_core_skills}}": candidate_core_skills,
+        "{{candidate_quant_projects}}": candidate_quant_projects,
+        "{{candidate_metrics}}": candidate_metrics,
+        "{{custom_reference}}": custom_reference,
+    }
+    out = template
+    for placeholder, value in replacements.items():
+        out = out.replace(placeholder, value or "")
+
+    # Remove duplicate blank lines, trim lines and overall
+    lines = [line.rstrip() for line in out.splitlines()]
+    cleaned_lines = []
+    prev_blank = False
+    for line in lines:
+        is_blank = not line.strip()
+        if is_blank and prev_blank:
+            continue
+        cleaned_lines.append(line)
+        prev_blank = is_blank
+    out = "\n".join(cleaned_lines).strip()
+    if len(out) > MAX_FILLED_LENGTH:
+        out = out[:MAX_FILLED_LENGTH].rstrip()
+    return out
+
+
+def _extract_subject_from_body(text: str) -> tuple[str, str]:
+    """If first line is 'Subject: ...', return (subject, body_without_subject_line). Else return ('', text)."""
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.lower().startswith("subject:"):
+            subject = stripped[8:].strip()
+            body = "\n".join(lines[i + 1 :]).strip()
+            return subject, body
+    return "", text
+
+
+def _gpt_refine_body(body: str) -> str:
+    """Optional GPT refinement: improve clarity, keep structure, do not expand length."""
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key or not api_key.strip():
+        return body
+    try:
+        client = OpenAI(api_key=api_key)
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "user",
+                    "content": (
+                        "Improve the clarity of this email. Keep the same structure and length. "
+                        "Do not remove or change content that was already filled in. "
+                        "Return only the improved email body, no explanation.\n\n" + body
+                    ),
+                }
+            ],
+            temperature=0.2,
+            timeout=API_TIMEOUT_SEC,
+        )
+        msg = response.choices[0].message
+        if msg and msg.content:
+            refined = msg.content.strip()
+            if len(refined) <= len(body) * 1.1:
+                return refined[:MAX_FILLED_LENGTH]
+    except Exception:
+        pass
+    return body
 
 
 def _format_company_info(row: dict) -> str:
@@ -156,9 +270,23 @@ def main() -> None:
 
     drafts: list[dict] = []
     for i, row in enumerate(rows):
+        tier = (row.get("tier") or "standard").strip() or "standard"
         log(f"Drafting [{i + 1}/{len(rows)}] {row.get('company_name', '?')}...")
         try:
-            draft = _draft_for_company(template, compact, user_highlights, row)
+            template_text = load_template(tier)
+            if template_text:
+                print(f"[TEMPLATE MODE] Using template for tier: {tier}")
+                score = {"solid_reasons": row.get("solid_reasons") if isinstance(row.get("solid_reasons"), list) else []}
+                filled = fill_template(template_text, row, profile, score)
+                subject, body = _extract_subject_from_body(filled)
+                if not subject:
+                    subject = f"{profile.name or 'Candidate'} – interested in {row.get('company_name', 'Company')}"
+                if USE_GPT_REFINEMENT:
+                    body = _gpt_refine_body(body)
+                draft = CompanyDraft(tier=tier, subject=subject, body=body)
+            else:
+                log(f"No template for tier '{tier}', using GPT generation.")
+                draft = _draft_for_company(template, compact, user_highlights, row)
             drafts.append({**row, "subject": draft.subject, "body": draft.body})
         except Exception as e:
             log(f"Failed for {row.get('company_name', '?')}: {e}")
