@@ -1,5 +1,6 @@
 # Secrets – never commit
 .env
+.env.*
 .env.local
 .env.*.local
 *.pem
@@ -32,6 +33,22 @@ eggs/
 Thumbs.db
 
 # Optional: uncomment to ignore generated data (you can still commit CSVs if you want)
-# data/raw/
-# data/processed/
-# data/final/
+ data/raw/
+ data/processed/
+ data/final/
+data/*_token*.json
+data/*_cache*.json
+data/*.csv
+data/*.json
+data/*.txt
+data/*.log
+data/*.log.*
+data/*.log.*.*
+data/*.log.*.*.*
+data/*.log.*.*.*.*
+data/*.log.*.*.*.*.*
+data/*.log.*.*.*.*.*.*
+*.log
+
+# End of .gitignore
+#lockin
